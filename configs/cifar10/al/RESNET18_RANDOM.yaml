@@ -1,0 +1,40 @@
+EXP_NAME: 'TINY_1'
+RNG_SEED: 1
+GPU_ID: '0'
+DATASET:
+  NAME: TINYIMAGENET 
+  # For Tiny ImageNet dataset, ROOT_DIR must be set to the dataset folder ("data/tiny-imagenet-200/"). For others, the outder "data" folder where all datasets can be stored is expected.
+  ROOT_DIR: '/DATA1/akshay/datasets/tiny-imagenet-200/'
+  VAL_RATIO: 0.1
+  AUG_METHOD: 'horizontalflip'
+MODEL:
+  TYPE: resnet18
+  NUM_CLASSES: 200
+OPTIM:
+  TYPE: 'adam'
+  BASE_LR: 0.0005
+  LR_POLICY: steps
+  STEPS: [0] #[0, 30, 60, 90]
+  MAX_EPOCH: 1
+  MOMENTUM: 0.0
+  NESTEROV: False
+  WEIGHT_DECAY: 0.0005
+  GAMMA: 0.0
+TRAIN:
+  SPLIT: train
+  BATCH_SIZE: 256
+  IM_SIZE: 64
+  EVAL_PERIOD: 2
+TEST:
+  SPLIT: test
+  BATCH_SIZE: 200
+  IM_SIZE: 64
+DATA_LOADER:
+  NUM_WORKERS: 4
+CUDNN:
+  BENCHMARK: True
+ACTIVE_LEARNING:
+  BUDGET_SIZE: 5000
+  SAMPLING_FN: 'random'
+  INIT_RATIO: 0.1
+  MAX_ITER: 2
