@@ -11,17 +11,16 @@ class InitialPool:
     Implements initial pool sampling methods.
     """
 
-    def __init__(self, dataObj, cfg):
-        self.dataObj = dataObj
+    def __init__(self, cfg):
         self.cfg = cfg
 
-    def sample_from_uSet(self, trainDataset):
+    def sample_from_uSet(self, dataset):
         """
         Sample from uSet using cfg.INIT_POOL.SAMPLING_FN.
 
         INPUT
         ------
-        trainDataset: PyTorch dataset object (basically full data)
+        dataset: PyTorch dataset object
 
         OUTPUT
         -------
@@ -29,13 +28,13 @@ class InitialPool:
         """
         assert (self.cfg.INIT_POOL.INIT_RATIO > 0) & (self.cfg.INIT_POOL.INIT_RATIO < 1) , "Expected a label ration between 0 and 1"
 
-        if self.cfg.INIT_POOL.SAMPLING_FN == 'rotation':
-            initSet, uSet = SelfSupervisionSampling(trainDataset=trainDataset, ratio=self.cfg.INIT_POOL.INIT_RATIO)
-        elif self.cfg.INIT_POOL.SAMPLING_FN == 'inpainting':
-            initSet, uSet = SelfSupervisionSampling(trainDataset=trainDataset, ratio=self.cfg.INIT_POOL.INIT_RATIO)
-        elif self.cfg.INIT_POOL.SAMPLING_FN == 'vae':
-            initSet, uSet = SelfSupervisionSampling(trainDataset=trainDataset, ratio=self.cfg.INIT_POOL.INIT_RATIO)
-        elif self.cfg.INIT_POOL.SAMPLING_FN == 'clustering':
-            initSet, uSet = ClusteringSampling(trainDataset=trainDataset, ratio=self.cfg.INIT_POOL.INIT_RATIO)
-        
+        budgetSize = int((self.cfg.INIT_POOL.INIT_RATIO)*len(dataset))
+
+        if self.cfg.INIT_POOL.SAMPLING_FN in ['simclr', 'vae']:
+            initSet, uSet = SelfSupervisionSampling(dataset=dataset, budgetSize=budgetSize, 
+                sampling_fn=self.cfg.INIT_POOL.SAMPLING_FN, dataset_name=self.cfg.DATASET.NAME).sample()
+        elif self.cfg.INIT_POOL.SAMPLING_FN in ['scan', 'kmeans']:
+            initSet, uSet = ClusteringSampling(dataset=dataset, budgetSize=budgetSize,  
+                sampling_fn=self.cfg.INIT_POOL.SAMPLING_FN, dataset_name=self.cfg.DATASET.NAME).sample()
+
         return initSet, uSet

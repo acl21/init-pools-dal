@@ -42,6 +42,9 @@ _C.LOG_DEST = 'file'
 # Log period in iters
 _C.LOG_PERIOD = 10
 
+# Perform hyperparameter optimization using Sweep by W&B
+_C.SWEEP = False
+
 
 #------------------------------------------------------------------------------#
 # VAAL Options (Taken from https://arxiv.org/abs/1904.00370)
@@ -209,7 +212,7 @@ _C.RANDAUG.M = 5
 # #  Initial Pool Sampling options
 # #-------------------------------------------------------------------------------#
 _C.INIT_POOL = CN()
-_C.INIT_POOL.SAMPLING_FN = 'random' # 'rotation', 'clustering', 'inpainting', 'vae'
+_C.INIT_POOL.SAMPLING_FN = 'random' # 'simclr', 'vae', 'scan', 'kmeans'
 _C.INIT_POOL.INIT_RATIO = 0.1 # Initial labeled pool ratio
 _C.INIT_POOL.TRAINSET_PATH = ''
 _C.INIT_POOL.VALSET_PATH = ''
@@ -259,7 +262,7 @@ _C.DATASET.NAME = None
 _C.DATASET.ROOT_DIR = None
 # Specifies the proportion of data in train set that should be considered as the validation data
 _C.DATASET.VAL_RATIO = 0.1
-# Data augmentation methods - 'simclr', 'randaug', 'horizontalflip'
+# Data augmentation methods - 'simclr', 'randaug', 'horizontalflip', 'none'
 _C.DATASET.AUG_METHOD = 'horizontalflip' 
 
 def assert_cfg():

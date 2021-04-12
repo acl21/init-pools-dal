@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 
 # local
 
@@ -95,6 +96,12 @@ def is_eval_epoch(cur_epoch):
 
 def main(cfg):
 
+    # Login to wandb
+    wandb.login()
+
+    # Initialize a new wandb run
+    wandb.init(project="rotation-pred", name=cfg.EXP_NAME)
+
     # Setting up GPU args
     use_cuda = (cfg.NUM_GPUS > 0) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -176,6 +183,8 @@ def main(cfg):
     
     _, _, eval_checkpoint_file = train_model(trainSet_loader, None, model, ssl_model, optimizer, cfg)
     
+    # eval_checkpoint_file = os.path.join(os.path.abspath('..'), '')
+
     # Test best model checkpoint
     print("======== EVALUATOR TESTING ========\n")
     logger.info("======== EVALUATOR TESTING ========\n")
@@ -230,6 +239,7 @@ def train_model(train_loader, val_loader, model, ssl_model, optimizer, cfg):
         if cfg.BN.USE_PRECISE_STATS:
             nu.compute_precise_bn_stats(model, train_loader)
         
+        wandb.log({"epoch": cur_epoch})
 
         # Model evaluation
         # if is_eval_epoch(cur_epoch):
@@ -391,6 +401,8 @@ def train_epoch(train_loader, model, ssl_model, loss_fun, optimizer, train_meter
         #     )
         # Copy the stats from GPU to CPU (sync point)
         loss, top1_err = loss.item(), top1_err.item()
+
+        wandb.log({"train_loss": loss})
         # #Only master process writes the logs which are used for plotting
         # if du.is_master_proc():
         if True:

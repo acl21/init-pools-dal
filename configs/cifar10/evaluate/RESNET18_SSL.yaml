@@ -1,39 +1,42 @@
-EXP_NAME: 'EVALUATE_2'
+EXP_NAME: 'EVALUATE_1_ALEX'
 RNG_SEED: 1
 GPU_ID: '3'
 DATASET:
   NAME: CIFAR10 
   ROOT_DIR: 'data'
+  AUG_METHOD: 'none'
 MODEL:
   # SSL Model
-  TYPE: resnet18 
+  TYPE: alexnet 
   NUM_CLASSES: 4
   # Evaluation Model
-  EVAL: nonlinear # linear
-  NUM_INPUT: 512
+  EVAL: linear # linear or nonlinear
+  NUM_INPUT: 4096
   NUM_HIDDEN: 512
-  NUM_OUTPUT: 10 # Evaluation
+  NUM_OUTPUT: 10 
 OPTIM: # used for training the non-linear/linear layer
   TYPE: 'sgd'
-  BASE_LR: 0.1
-  LR_POLICY: steps
-  LR_MULT: 0.2 # used with 'steps'
-  STEPS: [0, 60, 80] #[0, 30, 60, 90]
+  BASE_LR: 0.2
+  MIN_LR: 0.001
+  LR_POLICY: 'cos'
+  # LR_MULT: 0.2 # used with 'steps'
+  # STEPS: [0, 60, 80] #[0, 30, 60, 90]
   MAX_EPOCH: 100
   MOMENTUM: 0.9
   NESTEROV: True
-  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY: 0.
   GAMMA: 0.1
+# Evaluation Model Train 
 TRAIN:
   SPLIT: train
-  BATCH_SIZE: 256
+  BATCH_SIZE: 512
   IM_SIZE: 32
 TEST:
   SPLIT: test
   BATCH_SIZE: 256
   IM_SIZE: 32
   # SAVED SSL MODEL PATH
-  MODEL_PATH: 'output/CIFAR10/resnet18/ROTATION_1/vlBest_acc_67_model_epoch_0100.pyth' 
+  MODEL_PATH: 'output/CIFAR10/alexnet/ROTATION_1_ALEX/vlBest_acc_83_model_epoch_0172.pyth' 
 DATA_LOADER:
   NUM_WORKERS: 4
 CUDNN:

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import wandb
 # local
 
 def add_path(path):
@@ -22,6 +22,7 @@ from pycls.core.config import cfg
 import pycls.core.losses as losses
 import pycls.core.optimizer as optim
 from pycls.datasets.data import Data
+from pycls.init.init_main import InitialPool
 import pycls.utils.checkpoint as cu
 import pycls.utils.logging as lu
 import pycls.utils.metrics as mu
@@ -144,10 +145,18 @@ def main(cfg):
     print("\nDataset {} Loaded Sucessfully.\nTotal Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     logger.info("Dataset {} Loaded Sucessfully. Total Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     
-
-
-    lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
+    
+    print("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
+    logger.info("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
+    if cfg.INIT_POOL.SAMPLING_FN == 'random':
+           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
         val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
+    else:
+        lSet, uSet = InitialPool(cfg).sample_from_uSet(train_data)
+        lSet_path = f'{cfg.EXP_DIR}/lSet.npy'
+        np.save(lSet_path, lSet)
+        np.save(f'{cfg.EXP_DIR}/lSet_initial.npy', lSet)
+        uSet_path, valSet_path = data_obj.makeUVSets(val_split_ratio=cfg.DATASET.VAL_RATIO, data=uSet, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
 
     cfg.ACTIVE_LEARNING.LSET_PATH = lSet_path
     cfg.ACTIVE_LEARNING.USET_PATH = uSet_path
@@ -516,4 +525,48 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
+    if cfg.SWEEP:
+        # W&B Sweep config
+        sweep_config = {
+        'method': 'grid', #grid, random
+        'metric': {
+        'name': 'val_acc',
+        'goal': 'maximize'   
+        },
+        'parameters': {
+            'batch_size': {
+                'values': [256, 128, 64, 32]
+            },
+            'learning_rate': {
+                'values': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+            }
+                }
+            }
+
+        # Default values for hyper-parameters we're going to sweep over
+        config_defaults = {
+            'batch_size': cfg.TRAIN.BATCH_SIZE,
+            'learning_rate': cfg.OPTIM.BASE_LR
+        }
+        # Login to wandb
+        wandb.login()
+
+        # Initialize a new wandb run
+        wandb.init(config=config_defaults)
+        
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = wandb.config
+
+        # Initialize Sweep ID
+        sweep_id = wandb.sweep(sweep_config, project="{}-al-sweep".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+
+        # Use what sweep gives you
+        cfg.OPTIM.BASE_LR = config.learning_rate
+        cfg.TRAIN.BATCH_SIZE = config.batch_size
+
+        wandb.agent(sweep_id, main(cfg))
+    else:
+        wandb.login()
+        wandb.init(project="{}-al".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+
     main(cfg)

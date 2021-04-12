@@ -5,6 +5,7 @@
 from pycls.core.net import SoftCrossEntropyLoss
 from pycls.models.resnet import *
 from pycls.models.vgg import *
+from pycls.models.alexnet import *
 
 
 # Supported models
@@ -28,7 +29,10 @@ _models = {
     'resnext50_32x4d': resnext50_32x4d,
     'resnext101_32x8d': resnext101_32x8d,
     'wide_resnet50_2': wide_resnet50_2,
-    'wide_resnet101_2': wide_resnet101_2
+    'wide_resnet101_2': wide_resnet101_2,
+
+    # AlexNet architecture
+    'alexnet': alexnet
 }
 
 # Supported loss functions

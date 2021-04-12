@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 
 # local
 
@@ -93,7 +94,6 @@ def is_eval_epoch(cur_epoch):
 
 
 def main(cfg):
-
     # Setting up GPU args
     use_cuda = (cfg.NUM_GPUS > 0) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -174,12 +174,13 @@ def main(cfg):
     # Train model
     print("======== ROTATION TRAINING ========")
     logger.info("======== ROTATION TRAINING ========")
-    
+
     best_val_acc, best_val_epoch, checkpoint_file = train_model(trainSet_loader, valSet_loader, model, optimizer, cfg)
-    
+
+
     print("Best Validation Accuracy: {}\nBest Epoch: {}\n".format(round(best_val_acc, 4), best_val_epoch))
     logger.info("Best Validation Accuracy: {}\tBest Epoch: {}\n".format(round(best_val_acc, 4), best_val_epoch))
-    
+
     # Test best model checkpoint
     print("======== ROTATION TESTING ========\n")
     logger.info("======== ROTATION TESTING ========\n")
@@ -187,7 +188,7 @@ def main(cfg):
     test_acc = test_model(trainSet_loader, checkpoint_file, cfg, cur_episode=1)
     print("Test Accuracy: {}.\n".format(round(test_acc, 4)))
     logger.info("Test Accuracy {}.\n".format(test_acc))
-    
+
     print("================================\n\n")
     logger.info("================================\n\n")
 
@@ -234,13 +235,14 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
         if cfg.BN.USE_PRECISE_STATS:
             nu.compute_precise_bn_stats(model, train_loader)
         
-
+        wandb.log({"epoch": cur_epoch})
         # Model evaluation
         if is_eval_epoch(cur_epoch):
             # Original code[PYCLS] passes on testLoader but we want to compute on val Set
             val_set_err = test_epoch(val_loader, model, val_meter, cur_epoch)
             val_set_acc = 100. - val_set_err
-            
+            wandb.log({"val_acc": val_set_acc})
+
             if temp_best_val_acc < val_set_acc:
                 temp_best_val_acc = val_set_acc
                 temp_best_val_epoch = cur_epoch + 1
@@ -375,6 +377,7 @@ def train_epoch(train_loader, model, loss_fun, optimizer, train_meter, cur_epoch
         #     )
         # Copy the stats from GPU to CPU (sync point)
         loss, top1_err = loss.item(), top1_err.item()
+        
         # #Only master process writes the logs which are used for plotting
         # if du.is_master_proc():
         if True:
@@ -455,4 +458,48 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
-    main(cfg)
+    if cfg.SWEEP:
+        # W&B Sweep config
+        sweep_config = {
+        'method': 'grid', #grid, random
+        'metric': {
+        'name': 'val_acc',
+        'goal': 'maximize'   
+        },
+        'parameters': {
+            'batch_size': {
+                'values': [256, 128, 64, 32]
+            },
+            'learning_rate': {
+                'values': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+            }
+                }
+            }
+
+        # Default values for hyper-parameters we're going to sweep over
+        config_defaults = {
+            'batch_size': cfg.TRAIN.BATCH_SIZE,
+            'learning_rate': cfg.OPTIM.BASE_LR
+        }
+        # Login to wandb
+        wandb.login()
+
+        # Initialize a new wandb run
+        wandb.init(config=config_defaults)
+        
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = wandb.config
+
+        # Initialize Sweep ID
+        sweep_id = wandb.sweep(sweep_config, project="{}-rotation-pred-sweep".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+
+        # Use what sweep gives you
+        cfg.OPTIM.BASE_LR = config.learning_rate
+        cfg.TRAIN.BATCH_SIZE = config.batch_size
+
+        wandb.agent(sweep_id, main(cfg))
+    else:
+        wandb.login()
+        wandb.init(project="{}-rotation-pred".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+
+        main(cfg)

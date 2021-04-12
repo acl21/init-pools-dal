@@ -86,13 +86,26 @@ class Data:
         """
         if self.dataset in ["MNIST","SVHN","CIFAR10","CIFAR100","TINYIMAGENET"]:
             ops = []
-            
-            if self.dataset in ["CIFAR10", "CIFAR100", "SVHN"]:
+            norm_mean = []
+            norm_std = []
+
+            if self.dataset in ["CIFAR10", "CIFAR100"]:
                 ops = [transforms.RandomCrop(32, padding=4)]
+                norm_mean = [0.4914, 0.4822, 0.4465]
+                norm_std = [0.247 , 0.2435, 0.2616]
             elif self.dataset == "MNIST":
-                ops = [transforms.RandomCrop(28)]
+                ops = [transforms.RandomCrop(28)] 
+                norm_mean = [0.1307,]
+                norm_std = [0.3081,]
             elif self.dataset == "TINYIMAGENET":
                 ops = [transforms.RandomResizedCrop(64)]
+                # Using ImageNet values 
+                norm_mean = [0.485, 0.456, 0.406]
+                norm_std = [0.229, 0.224, 0.225]
+            elif self.dataset in ["SVHN"]:
+                ops = [transforms.RandomCrop(32, padding=4)]
+                norm_mean = [0.4376, 0.4437, 0.4728]
+                norm_std = [0.1980, 0.2010, 0.1970]
             else:
                 raise NotImplementedError
 
@@ -108,9 +121,10 @@ class Data:
                 ops.append(transforms.RandomHorizontalFlip())
 
             ops.append(transforms.ToTensor())
-            
+            ops.append(transforms.Normalize(norm_mean, norm_std))
+
             if self.eval_mode:
-                ops = [transforms.ToTensor()]
+                ops = [transforms.ToTensor(), transforms.Normalize(norm_mean, norm_std)]
             else:
                 print("Preprocess Operations Selected ==> ", ops)
                 # logger.info("Preprocess Operations Selected ==> ", ops)
@@ -293,6 +307,55 @@ class Data:
         
         return f'{save_dir}/trainSet.npy', f'{save_dir}/valSet.npy'
 
+    def makeUVSets(self, val_split_ratio, data, seed_id, save_dir): 
+        """
+        Initial labeled pool should already be sampled. We use this function to initialize the train and validation sets by splitting the train data according to split_ratios arguments.
+
+        Visually it does the following:
+
+        |<------------- Unlabeled -------------><--- Validation --->
+
+        INPUT:
+        val_split_ratio: Float, Specifies the proportion of data in validation set.
+        For example: 0.1 means ending 10% of data is validation data.
+
+        data: reference to uSet instance post initial pool sampling. This can be obtained by calling getDataset function of Data class.
+        
+        OUTPUT:
+        (On Success) Sets the unlabeled set and the validation set
+        (On Failure) Returns Message as <dataset> not specified.
+        """
+        # Reproducibility stuff
+        torch.manual_seed(seed_id)
+        np.random.seed(seed_id)
+
+        assert isinstance(val_split_ratio, float),"Val split ratio is of {} datatype instead of float".format(type(val_split_ratio))
+        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET"], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
+
+        uSet = []
+        valSet = []
+        
+        n_dataPoints = len(data)
+        # all_idx = [i for i in range(n_dataPoints)]
+        np.random.shuffle(data)
+
+        # To get the validation index from end we multiply n_datapoints with 1-val_ratio 
+        val_splitIdx = int((1-val_split_ratio)*n_dataPoints)
+        
+        uSet = data[:val_splitIdx]
+        valSet = data[val_splitIdx:]
+
+        # print("=============================")
+        # print("lSet len: {}, uSet len: {} and valSet len: {}".format(len(lSet),len(uSet),len(valSet)))
+        # print("=============================")
+        
+        uSet = np.array(uSet, dtype=np.ndarray)
+        valSet = np.array(valSet, dtype=np.ndarray)
+        
+        np.save(f'{save_dir}/uSet.npy', uSet)
+        np.save(f'{save_dir}/valSet.npy', valSet)
+        
+        return f'{save_dir}/uSet.npy', f'{save_dir}/valSet.npy'
 
     def getIndexesDataLoader(self, indexes, batch_size, data):
         """

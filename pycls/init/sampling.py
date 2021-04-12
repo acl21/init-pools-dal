@@ -33,15 +33,77 @@ class EntropyLoss(nn.Module):
 
 class SelfSupervisionSampling:
     """
-    Here we implement different self-supervision based initial pool sampling methods.
+    Loads SimCLR and VAE losses. Generates the initial pool accordingly. 
     """
 
-    def __init__(self, dataObj, cfg):
-        self.cfg = cfg
-        self.cuda_id = 0 if cfg.ACTIVE_LEARNING.SAMPLING_FN.startswith("ensemble") else torch.cuda.current_device()
-        self.dataObj = dataObj
+    def __init__(self, dataset, budgetSize, sampling_fn, dataset_name):
+        fullSet = np.array([i for i in range(len(dataset))],dtype=np.ndarray)
+
+        output_dir = '../results/'
+        if dataset_name == 'CIFAR10':
+            output_dir += 'cifar-10/'
+        elif dataset_name == 'CIFAR100':
+            output_dir += 'cifar-100/'
+        elif dataset_name == 'MNIST':
+            output_dir += 'mnist/'
+        elif dataset_name == 'TINYIMAGENET':
+            output_dir += 'tinyimagenet/'
+        
+        if sampling_fn == "simclr":
+            file_path = f'{output_dir}/{dataset_name}_SimCLR_losses.npy'
+        elif sampling_fn == "vae":
+            file_path = f'{output_dir}/{dataset_name}_VAE_losses.npy'
+        
+        losses = np.load(file_path)
+        sorted_idx = np.argsort(losses)[::-1]
+        initSet = sorted_idx[:budgetSize]
+        self.initSet = fullSet[initSet]
+        self.remainSet = fullSet[sorted_idx[budgetSize:]]
+
+
+    def sample(self):
+        return self.initSet, self.remainSet 
+
 
 class ClusteringSampling:
     """
-    Here we implement different the clustering based initial pool sampling methods.
+    Loads SCAN and K-Means cluster ids. Generates the initial pool accordingly.
     """
+    def __init__(self, dataset, budgetSize, sampling_fn, dataset_name):
+        fullSet = [i for i in range(len(dataset))]
+
+        output_dir = '../results/'
+        if dataset_name == 'CIFAR10':
+            output_dir += 'cifar-10'
+            num_clusters = 10
+        elif dataset_name == 'CIFAR100':
+            output_dir += 'cifar-100'
+            num_clusters = 20
+        elif dataset_name == 'MNIST':
+            output_dir += 'mnist'
+            num_clusters = 10
+        elif dataset_name == 'TINYIMAGENET':
+            output_dir += 'tinyimagenet'
+            num_clusters = 200
+        
+        if sampling_fn == "scan":
+            file_path = f'{output_dir}/{dataset_name}_SCAN_cluster_ids.npy'
+        elif sampling_fn == "kmeans":
+            file_path = f'{output_dir}/{dataset_name}_kmeans_cluster_ids.npy'
+        
+        cluster_ids = np.load(file_path)
+        # Equal budget assigned to all classes
+        cluster_budgets = [int(budgetSize/num_clusters) for x in range(num_clusters)]
+        groups = []
+        for cluster_id in range(num_clusters):
+            groups.append(np.array([idx for idx, x in enumerate(cluster_ids) if x == cluster_id]))
+        self.initSet = []
+        self.remainSet = []
+        for idx, g in enumerate(groups):
+            np.random.shuffle(g)
+            self.initSet.extend(g[:cluster_budgets[idx]])
+            self.remainSet.extend(g[cluster_budgets[idx]:])
+
+
+    def sample(self):
+        return self.initSet, self.remainSet 

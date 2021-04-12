@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import wandb
 # local
 
 def add_path(path):
@@ -139,8 +139,7 @@ def main(cfg):
     print("\nDataset {} Loaded Sucessfully.\nTotal Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     logger.info("Dataset {} Loaded Sucessfully. Total Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     
-    trainSet_path, valSet_path = data_obj.makeTVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
-        val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
+    trainSet_path, valSet_path = data_obj.makeTVSets(val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
 
     trainSet, valSet = data_obj.loadTVPartitions(trainSetPath=trainSet_path, valSetPath=valSet_path)
 
@@ -227,13 +226,14 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
         if cfg.BN.USE_PRECISE_STATS:
             nu.compute_precise_bn_stats(model, train_loader)
         
-
+        wandb.log({"epoch": cur_epoch})
         # Model evaluation
         if is_eval_epoch(cur_epoch):
             # Original code[PYCLS] passes on testLoader but we want to compute on val Set
             val_set_err = test_epoch(val_loader, model, val_meter, cur_epoch)
             val_set_acc = 100. - val_set_err
-            
+            wandb.log({"val_acc": val_set_acc})
+
             if temp_best_val_acc < val_set_acc:
                 temp_best_val_acc = val_set_acc
                 temp_best_val_epoch = cur_epoch + 1
@@ -447,4 +447,47 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
+    if cfg.SWEEP:
+        # W&B Sweep config
+        sweep_config = {
+        'method': 'grid', #grid, random
+        'metric': {
+        'name': 'val_acc',
+        'goal': 'maximize'   
+        },
+        'parameters': {
+            'batch_size': {
+                'values': [256, 128, 64, 32]
+            },
+            'learning_rate': {
+                'values': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+            }
+                }
+            }
+
+        # Default values for hyper-parameters we're going to sweep over
+        config_defaults = {
+            'batch_size': cfg.TRAIN.BATCH_SIZE,
+            'learning_rate': cfg.OPTIM.BASE_LR
+        }
+        # Login to wandb
+        wandb.login()
+
+        # Initialize a new wandb run
+        wandb.init(config=config_defaults)
+        
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = wandb.config
+
+        # Initialize Sweep ID
+        sweep_id = wandb.sweep(sweep_config, project="{}-passive-sweep".format(str.lower(cfg.DATASET.NAME)))
+
+        # Use what sweep gives you
+        cfg.OPTIM.BASE_LR = config.learning_rate
+        cfg.TRAIN.BATCH_SIZE = config.batch_size
+
+        wandb.agent(sweep_id, main(cfg))
+    else:
+        wandb.login()
+        wandb.init(project="{}-passive".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
     main(cfg)

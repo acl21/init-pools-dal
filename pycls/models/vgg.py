@@ -42,7 +42,7 @@ class VGG(nn.Module):
     ) -> None:
         super(VGG, self).__init__()
         self.penultimate_active = False
-        if self.num_classes == 1000:
+        if num_classes == 1000:
             logger.warning("This open source implementation is only suitable for small datasets like CIFAR. \
                 For Imagenet we recommend to use Resnet based models")
             self.penultimate_dim = 4096

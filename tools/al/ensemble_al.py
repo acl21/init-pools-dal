@@ -143,8 +143,17 @@ def main(cfg):
     print("\nDataset {} Loaded Sucessfully.\nTotal Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     logger.info("Dataset {} Loaded Sucessfully. Total Train Size: {} and Total Test Size: {}\n".format(cfg.DATASET.NAME, train_size, test_size))
     
-    lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
+    print("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
+    logger.info("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
+    if cfg.INIT_POOL.SAMPLING_FN == 'random':
+           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
         val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
+    else:
+        lSet, uSet = InitialPool(cfg).sample_from_uSet(train_data)
+        lSet_path = f'{cfg.EXP_DIR}/lSet.npy'
+        np.save(lSet_path, lSet)
+        np.save(f'{cfg.EXP_DIR}/lSet_initial.npy', lSet)
+        uSet_path, valSet_path = data_obj.makeUVSets(val_split_ratio=cfg.DATASET.VAL_RATIO, data=uSet, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
 
     cfg.ACTIVE_LEARNING.LSET_PATH = lSet_path
     cfg.ACTIVE_LEARNING.USET_PATH = uSet_path

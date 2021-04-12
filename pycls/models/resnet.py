@@ -174,7 +174,8 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+        # Conv1 changed for CIFAR10
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -187,7 +188,14 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        # self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+        # New projection layer
+        projection_dim = 128
+        self.projector = nn.Sequential(nn.Linear(512 * block.expansion, 512),
+                                       nn.ReLU(),
+                                       nn.Linear(512, projection_dim))
+        self.fc = nn.Linear(projection_dim, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -244,7 +252,8 @@ class ResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-        z = torch.flatten(x, 1)
+        x = torch.flatten(x, 1)
+        z = self.projector(x)
         x = self.fc(z)
         if self.penultimate_active:
             return z, x
