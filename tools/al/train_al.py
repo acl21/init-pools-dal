@@ -189,6 +189,8 @@ def main(cfg):
 
     for cur_episode in range(0, cfg.ACTIVE_LEARNING.MAX_ITER+1):
         
+        wandb.log({"Episode": cur_episode})
+
         print("======== EPISODE {} BEGINS ========\n".format(cur_episode))
         logger.info("======== EPISODE {} BEGINS ========\n".format(cur_episode))
 
@@ -280,6 +282,8 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
     clf_iter_count = 0
 
     for cur_epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
+
+        wandb.log({"Epoch": cur_epoch})
         # Train for one epoch
         train_loss, clf_iter_count = train_epoch(train_loader, model, loss_fun, optimizer, train_meter, \
                                         cur_epoch, cfg, clf_iter_count, clf_change_lr_iter, clf_train_iterations)
@@ -558,7 +562,7 @@ if __name__ == "__main__":
         config = wandb.config
 
         # Initialize Sweep ID
-        sweep_id = wandb.sweep(sweep_config, project="{}-al-sweep".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+        sweep_id = wandb.sweep(sweep_config, project="{}-al-main".format(str.lower(cfg.DATASET.NAME)))
 
         # Use what sweep gives you
         cfg.OPTIM.BASE_LR = config.learning_rate
@@ -567,6 +571,6 @@ if __name__ == "__main__":
         wandb.agent(sweep_id, main(cfg))
     else:
         wandb.login()
-        wandb.init(project="{}-al".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
+        wandb.init(project="{}-init-main".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
 
     main(cfg)

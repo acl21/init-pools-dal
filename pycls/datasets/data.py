@@ -117,7 +117,7 @@ class Data:
                 #Though RandAugment paper works with WideResNet model
                 ops.append(RandAugmentPolicy(N=self.rand_augment_N, M=self.rand_augment_M))
 
-            elif not self.eval_mode and (self.aug_method == 'horizontalflip'):
+            elif not self.eval_mode and (self.aug_method == 'hflip'):
                 ops.append(transforms.RandomHorizontalFlip())
 
             ops.append(transforms.ToTensor())
