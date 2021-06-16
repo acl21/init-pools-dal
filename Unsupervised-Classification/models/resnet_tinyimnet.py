@@ -191,7 +191,7 @@ class ResNet(nn.Module):
         # self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         # New projection layer
-        projection_dim = 128
+        projection_dim = 512
         self.projector = nn.Sequential(nn.Linear(512 * block.expansion, 2048),
                                        nn.ReLU(),
                                        nn.Linear(2048, projection_dim))
@@ -253,10 +253,7 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        z = self.projector(x)
-        x = self.fc(z)
-        if self.penultimate_active:
-            return z, x
+
         return x
 
     def forward(self, x: Tensor) -> Tensor:
@@ -287,8 +284,8 @@ def resnet18(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> 
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
-                   **kwargs)
+    return {'backbone': _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
+                   **kwargs), 'dim': 512}
 
 
 def resnet34(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:

@@ -17,8 +17,8 @@ backbone: resnet18
 num_heads: 1
 
 # Dataset
-train_db_name: cifar-10
-val_db_name: cifar-10
+train_db_name: mnist
+val_db_name: mnist
 num_classes: 10
 
 # Transformations
@@ -26,8 +26,8 @@ augmentation_strategy: ours
 augmentation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.4914, 0.4822, 0.4465]
-      std: [0.247 , 0.2435, 0.2616]
+      mean:  [0.1307,]
+      std: [0.3081,]
    num_strong_augs: 4
    cutout_kwargs:
      n_holes: 1
@@ -37,8 +37,8 @@ augmentation_kwargs:
 transformation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.4914, 0.4822, 0.4465]
-      std: [0.247 , 0.2435, 0.2616]
+      mean:  [0.1307,]
+      std: [0.3081,]
 
 # Hyperparameters
 epochs: 200

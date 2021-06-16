@@ -14,9 +14,12 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from .randaugment import RandAugmentPolicy
 from .simclr_augment import get_simclr_ops
 from .utils import helpers
+# import pycls.utils.logging as lu
+from pycls.datasets.imbalanced_cifar import IMBALANCECIFAR10, IMBALANCECIFAR100
 from pycls.datasets.sampler import IndexedSequentialSampler
 from pycls.datasets.tiny_imagenet import TinyImageNet
 
+# logger = lu.get_logger(__name__)
 
 class Data:
     """
@@ -82,17 +85,17 @@ class Data:
         OUTPUT:
         Returns a list of preprocessing steps. Note the order of operations matters in the list.
         """
-        if self.dataset in ["MNIST","SVHN","CIFAR10","CIFAR100","TINYIMAGENET"]:
+        if self.dataset in ["MNIST","SVHN","CIFAR10","CIFAR100","TINYIMAGENET", 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100']:
             ops = []
             norm_mean = []
             norm_std = []
 
-            if self.dataset in ["CIFAR10", "CIFAR100"]:
-                ops = [transforms.RandomResizedCrop(32)]
+            if self.dataset in ["CIFAR10", "CIFAR100", 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100']:
+                ops = [transforms.RandomCrop(32, padding=4)]
                 norm_mean = [0.4914, 0.4822, 0.4465]
                 norm_std = [0.247 , 0.2435, 0.2616]
             elif self.dataset == "MNIST":
-                ops = [transforms.RandomCrop(28)] 
+                ops = [transforms.RandomResizedCrop(32)] 
                 norm_mean = [0.1307,]
                 norm_std = [0.3081,]
             elif self.dataset == "TINYIMAGENET":
@@ -115,14 +118,14 @@ class Data:
                 #Though RandAugment paper works with WideResNet model
                 ops.append(RandAugmentPolicy(N=self.rand_augment_N, M=self.rand_augment_M))
 
-            elif not self.eval_mode and (self.aug_method == 'horizontalflip'):
+            elif not self.eval_mode and (self.aug_method == 'hflip'):
                 ops.append(transforms.RandomHorizontalFlip())
 
             ops.append(transforms.ToTensor())
             ops.append(transforms.Normalize(norm_mean, norm_std))
 
             if self.eval_mode:
-                ops = [transforms.ToTensor(), transforms.Normalize(norm_mean, norm_std)]
+                ops = [ops[0], transforms.ToTensor(), transforms.Normalize(norm_mean, norm_std)]
             else:
                 print("Preprocess Operations Selected ==> ", ops)
                 # logger.info("Preprocess Operations Selected ==> ", ops)
@@ -179,11 +182,19 @@ class Data:
 
         elif self.dataset == "TINYIMAGENET":
             if isTrain:
+                # tiny = datasets.ImageFolder(save_dir+'/train', transform=preprocess_steps)
                 tiny = TinyImageNet(save_dir, split='train', transform=preprocess_steps)
             else:
+                # tiny = datasets.ImageFolder(save_dir+'/val', transform=preprocess_steps)
                 tiny = TinyImageNet(save_dir, split='val', transform=preprocess_steps)
             return tiny, len(tiny)
-
+        
+        elif self.dataset == 'IMBALANCED_CIFAR10':
+            im_cifar10 = IMBALANCECIFAR10(save_dir, train=isTrain, transform=preprocess_steps)
+            return im_cifar10, len(im_cifar10)
+        elif self.dataset ==  'IMBALANCED_CIFAR100':
+            im_cifar100 = IMBALANCECIFAR100(save_dir, train=isTrain, transform=preprocess_steps)
+            return im_cifar100, len(im_cifar100)
         else:
             print("Either the specified {} dataset is not added or there is no if condition in getDataset function of Data class".format(self.dataset))
 #             logger.info("Either the specified {} dataset is not added or there is no if condition in getDataset function of Data class".format(self.dataset))
@@ -220,7 +231,7 @@ class Data:
 
         assert isinstance(train_split_ratio, float),"Train split ratio is of {} datatype instead of float".format(type(train_split_ratio))
         assert isinstance(val_split_ratio, float),"Val split ratio is of {} datatype instead of float".format(type(val_split_ratio))
-        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET"], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
+        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET", 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100'], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
 
         lSet = []
         uSet = []
@@ -278,7 +289,7 @@ class Data:
         np.random.seed(seed_id)
 
         assert isinstance(val_split_ratio, float),"Val split ratio is of {} datatype instead of float".format(type(val_split_ratio))
-        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET"], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
+        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET", 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100'], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
 
         trainSet = []
         valSet = []
@@ -305,6 +316,55 @@ class Data:
         
         return f'{save_dir}/trainSet.npy', f'{save_dir}/valSet.npy'
 
+    def makeUVSets(self, val_split_ratio, data, seed_id, save_dir): 
+        """
+        Initial labeled pool should already be sampled. We use this function to initialize the train and validation sets by splitting the train data according to split_ratios arguments.
+
+        Visually it does the following:
+
+        |<------------- Unlabeled -------------><--- Validation --->
+
+        INPUT:
+        val_split_ratio: Float, Specifies the proportion of data in validation set.
+        For example: 0.1 means ending 10% of data is validation data.
+
+        data: reference to uSet instance post initial pool sampling. This can be obtained by calling getDataset function of Data class.
+        
+        OUTPUT:
+        (On Success) Sets the unlabeled set and the validation set
+        (On Failure) Returns Message as <dataset> not specified.
+        """
+        # Reproducibility stuff
+        torch.manual_seed(seed_id)
+        np.random.seed(seed_id)
+
+        assert isinstance(val_split_ratio, float),"Val split ratio is of {} datatype instead of float".format(type(val_split_ratio))
+        assert self.dataset in ["MNIST","CIFAR10","CIFAR100", "SVHN", "TINYIMAGENET"], "Sorry the dataset {} is not supported. Currently we support ['MNIST','CIFAR10', 'CIFAR100', 'SVHN', 'TINYIMAGENET']".format(self.dataset)
+
+        uSet = []
+        valSet = []
+        
+        n_dataPoints = len(data)
+        # all_idx = [i for i in range(n_dataPoints)]
+        np.random.shuffle(data)
+
+        # To get the validation index from end we multiply n_datapoints with 1-val_ratio 
+        val_splitIdx = int((1-val_split_ratio)*n_dataPoints)
+        
+        uSet = data[:val_splitIdx]
+        valSet = data[val_splitIdx:]
+
+        # print("=============================")
+        # print("lSet len: {}, uSet len: {} and valSet len: {}".format(len(lSet),len(uSet),len(valSet)))
+        # print("=============================")
+        
+        uSet = np.array(uSet, dtype=np.ndarray)
+        valSet = np.array(valSet, dtype=np.ndarray)
+        
+        np.save(f'{save_dir}/uSet.npy', uSet)
+        np.save(f'{save_dir}/valSet.npy', valSet)
+        
+        return f'{save_dir}/uSet.npy', f'{save_dir}/valSet.npy'
 
     def getIndexesDataLoader(self, indexes, batch_size, data):
         """
@@ -388,7 +448,7 @@ class Data:
         torch.manual_seed(seed_id)
         np.random.seed(seed_id)
 
-        if self.dataset in ["MNIST","CIFAR10","CIFAR100", "TINYIMAGENET"]:
+        if self.dataset in ["MNIST","CIFAR10","CIFAR100", "TINYIMAGENET", 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100']:
             n_datapts = len(data)
             idx = [i for i in range(n_datapts)]
             #np.random.shuffle(idx)

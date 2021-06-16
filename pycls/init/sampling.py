@@ -48,6 +48,8 @@ class SelfSupervisionSampling:
             output_dir += 'mnist/'
         elif dataset_name == 'TINYIMAGENET':
             output_dir += 'tinyimagenet/'
+        elif dataset_name == 'IMBALANCED_CIFAR10':
+            output_dir += 'imbalanced-cifar-10/'
         
         if sampling_fn == "simclr":
             file_path = f'{output_dir}/{dataset_name}_SimCLR_losses.npy'
@@ -78,13 +80,16 @@ class ClusteringSampling:
             num_clusters = 10
         elif dataset_name == 'CIFAR100':
             output_dir += 'cifar-100'
-            num_clusters = 20
+            num_clusters = 19
         elif dataset_name == 'MNIST':
             output_dir += 'mnist'
             num_clusters = 10
         elif dataset_name == 'TINYIMAGENET':
             output_dir += 'tinyimagenet'
             num_clusters = 200
+        elif dataset_name == 'IMBALANCED_CIFAR10':
+            output_dir += 'imbalanced-cifar-10/'
+            num_clusters = 10
         
         if sampling_fn == "scan":
             file_path = f'{output_dir}/{dataset_name}_SCAN_cluster_ids.npy'
@@ -95,7 +100,11 @@ class ClusteringSampling:
         # Equal budget assigned to all classes
         cluster_budgets = [int(budgetSize/num_clusters) for x in range(num_clusters)]
         groups = []
+        if dataset_name == 'CIFAR100':
+            num_clusters += 1
         for cluster_id in range(num_clusters):
+            if cluster_id == 1 and dataset_name == 'CIFAR100':
+                continue
             groups.append(np.array([idx for idx, x in enumerate(cluster_ids) if x == cluster_id]))
         self.initSet = []
         self.remainSet = []

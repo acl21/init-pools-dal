@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import wandb
 # local
 
 def add_path(path):
@@ -22,6 +23,7 @@ from pycls.core.config import cfg
 import pycls.core.losses as losses
 import pycls.core.optimizer as optim
 from pycls.datasets.data import Data
+from pycls.init.init_main import InitialPool
 import pycls.utils.checkpoint as cu
 import pycls.utils.logging as lu
 import pycls.utils.metrics as mu
@@ -44,6 +46,9 @@ plot_it_y_values = []
 def argparser():
     parser = argparse.ArgumentParser(description='Active Learning - Image Classification')
     parser.add_argument('--cfg', dest='cfg_file', help='Config file', required=True, type=str)
+    parser.add_argument('--exp-name', dest='exp_name', help='Experiment Name', required=True, type=str)
+    parser.add_argument('--init', dest='init', help='Init Pool Function', required=True, type=str)
+    parser.add_argument('--al', dest='al', help='AL Method', required=True, type=str)
 
     return parser
 
@@ -112,7 +117,7 @@ def main(cfg):
     # Create "DATASET" specific directory
     dataset_out_dir = os.path.join(cfg.OUT_DIR, cfg.DATASET.NAME, cfg.MODEL.TYPE)
     if not os.path.exists(dataset_out_dir):
-        os.mkdir(dataset_out_dir)
+        os.makedirs(dataset_out_dir)
     # Creating the experiment directory inside the dataset specific directory 
     # all logs, labeled, unlabeled, validation sets are stroed here 
     # E.g., output/CIFAR10/resnet18/{timestamp or cfg.EXP_NAME based on arguments passed}
@@ -146,7 +151,7 @@ def main(cfg):
     print("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
     logger.info("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
     if cfg.INIT_POOL.SAMPLING_FN == 'random':
-           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
+           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.INIT_POOL.INIT_RATIO, \
         val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
     else:
         lSet, uSet = InitialPool(cfg).sample_from_uSet(train_data)
@@ -186,6 +191,8 @@ def main(cfg):
 
     for cur_episode in range(0, cfg.ACTIVE_LEARNING.MAX_ITER+1):
         
+        wandb.log({"Episode": cur_episode})
+
         print("======== EPISODE {} BEGINS ========\n".format(cur_episode))
         logger.info("======== EPISODE {} BEGINS ========\n".format(cur_episode))
 
@@ -236,6 +243,7 @@ def main(cfg):
         mean_test_acc = np.mean(test_accs)
         print("Average Ensemble Test Accuracy: {}.\n".format(round(mean_test_acc, 4)))
         logger.info("EPISODE {} Average Ensemble Test Accuracy: {}.\n".format(cur_episode, mean_test_acc))
+        wandb.log({"Test Accuracy": mean_test_acc})
 
         global plot_episode_xvalues
         global plot_episode_yvalues
@@ -552,4 +560,52 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
+    cfg.EXP_NAME = argparser().parse_args().exp_name
+    cfg.INIT_POOL.SAMPLING_FN = argparser().parse_args().init
+    cfg.ACTIVE_LEARNING.SAMPLING_FN = argparser().parse_args().al
+    
+    if cfg.SWEEP:
+        # W&B Sweep config
+        sweep_config = {
+        'method': 'grid', #grid, random
+        'metric': {
+        'name': 'val_acc',
+        'goal': 'maximize'   
+        },
+        'parameters': {
+            'batch_size': {
+                'values': [256, 128, 64, 32]
+            },
+            'learning_rate': {
+                'values': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+            }
+                }
+            }
+
+        # Default values for hyper-parameters we're going to sweep over
+        config_defaults = {
+            'batch_size': cfg.TRAIN.BATCH_SIZE,
+            'learning_rate': cfg.OPTIM.BASE_LR
+        }
+        # Login to wandb
+        wandb.login()
+
+        # Initialize a new wandb run
+        wandb.init(config=config_defaults)
+        
+        # Config is a variable that holds and saves hyperparameters and inputs
+        config = wandb.config
+
+        # Initialize Sweep ID
+        sweep_id = wandb.sweep(sweep_config, project="{}-init-main".format(str.lower(cfg.DATASET.NAME)))
+
+        # Use what sweep gives you
+        cfg.OPTIM.BASE_LR = config.learning_rate
+        cfg.TRAIN.BATCH_SIZE = config.batch_size
+
+        wandb.agent(sweep_id, main(cfg))
+    else:
+        os.environ['WANDB_API_KEY'] = "befac31ac1ef7426a055ae8c138fb2b47930bd35"
+        wandb.login()
+        wandb.init(project="{}-init-main".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
     main(cfg)

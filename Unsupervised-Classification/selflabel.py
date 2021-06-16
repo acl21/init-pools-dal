@@ -5,7 +5,7 @@ Licensed under the CC BY-NC 4.0 license (https://creativecommons.org/licenses/by
 import argparse
 import os
 import torch
-
+import numpy as np
 from utils.config import create_config
 from utils.common_config import get_train_dataset, get_train_transformations,\
                                 get_val_dataset, get_val_transformations,\
@@ -16,6 +16,7 @@ from utils.ema import EMA
 from utils.evaluate_utils import get_predictions, hungarian_evaluate
 from utils.train_utils import selflabel_train
 from termcolor import colored
+import pickle
 
 # Parser
 parser = argparse.ArgumentParser(description='Self-labeling')
@@ -113,6 +114,9 @@ def main():
     # Evaluate and save the final model
     print(colored('Evaluate model at the end', 'blue'))
     predictions = get_predictions(p, val_dataloader, model)
+#     predictions2 = get_predictions(p, train_dataloader, model)
+#     with open('predictions.pkl', 'wb') as handle:
+#         pickle.dump(predictions2, handle, protocol=pickle.HIGHEST_PROTOCOL)
     clustering_stats = hungarian_evaluate(0, predictions, 
                                 class_names=val_dataset.classes,
                                 compute_confusion_matrix=True,

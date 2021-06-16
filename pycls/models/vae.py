@@ -49,10 +49,10 @@ class VanillaVAE(BaseVAE):
         super(VanillaVAE, self).__init__()
 
         self.latent_dim = latent_dim
-
+        in_c = in_channels
         modules = []
         if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+            hidden_dims = [32, 64, 128, 256]
 
         # Build Encoder
         for h_dim in hidden_dims:
@@ -103,7 +103,7 @@ class VanillaVAE(BaseVAE):
                                                output_padding=1),
                             nn.BatchNorm2d(hidden_dims[-1]),
                             nn.LeakyReLU(),
-                            nn.Conv2d(hidden_dims[-1], out_channels= 3,
+                            nn.Conv2d(hidden_dims[-1], out_channels=in_c,
                                       kernel_size= 3, padding= 1),
                             nn.Tanh())
 
@@ -133,7 +133,7 @@ class VanillaVAE(BaseVAE):
         :return: (Tensor) [B x C x H x W]
         """
         result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
+        result = result.view(-1, 256, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
         return result
@@ -182,17 +182,43 @@ class VanillaVAE(BaseVAE):
 
         return self.forward(x)[0]
 
+
+class VanillaVAE2(VanillaVAE):
+
+
+    def __init__(self,
+                 in_channels: int,
+                 latent_dim: int,
+                 hidden_dims: List = None,
+                 **kwargs) -> None:
+        super(VanillaVAE2, self).__init__(in_channels, latent_dim, hidden_dims=[32, 64, 128, 256, 512])
+
+    def decode(self, z: Tensor) -> Tensor:
+        """
+        Maps the given latent codes
+        onto the image space.
+        :param z: (Tensor) [B x D]
+        :return: (Tensor) [B x C x H x W]
+        """
+        result = self.decoder_input(z)
+        result = result.view(-1, 512, 2, 2)
+        result = self.decoder(result)
+        result = self.final_layer(result)
+        return result
+
+
+
 def loss_function(recons, input, mu, log_var, kld_weight) -> dict:
     """
     Computes the VAE loss function.
     KL(N(\mu, \sigma), N(0, 1)) = \log \frac{1}{\sigma} + \frac{\sigma^2 + \mu^2}{2} - \frac{1}{2}
     """
 
-    kld_weight =  128/50000 # Account for the minibatch samples from the dataset
+    # kld_weight =  128/45000 # Account for the minibatch samples from the dataset
     recons_loss =F.mse_loss(recons, input)
 
 
     kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 
     loss = recons_loss + kld_weight * kld_loss
-    return loss, recons_loss, -kld_loss
+    return loss, recons_loss, kld_loss

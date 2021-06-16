@@ -14,9 +14,9 @@ num_heads: 1 # Only use one head
 backbone: resnet18
 
 # Dataset
-train_db_name: cifar-20
-val_db_name: cifar-20
-num_classes: 20
+train_db_name: mnist
+val_db_name: mnist
+num_classes: 10
 num_neighbors: 20
 
 # Transformations
@@ -24,8 +24,8 @@ augmentation_strategy: ours
 augmentation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.5071, 0.4867, 0.4408]
-      std: [0.2675, 0.2565, 0.2761]
+      mean:  [0.1307,]
+      std: [0.3081,]
    num_strong_augs: 4
    cutout_kwargs:
      n_holes: 1
@@ -35,8 +35,8 @@ augmentation_kwargs:
 transformation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.5071, 0.4867, 0.4408]
-      std: [0.2675, 0.2565, 0.2761]
+      mean:  [0.1307,]
+      std: [0.3081,]
 
 # Hyperparameters
 optimizer: adam

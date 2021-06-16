@@ -47,11 +47,11 @@ augmentation_kwargs:
    random_grayscale: 
       p: 0.2
    normalize:
-      mean: [0.5071, 0.4867, 0.4408]
-      std: [0.2675, 0.2565, 0.2761]
+      mean: [0.4914, 0.4822, 0.4465]
+      std: [0.247 , 0.2435, 0.2616]
 
 transformation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.5071, 0.4867, 0.4408]
-      std: [0.2675, 0.2565, 0.2761]
+      mean: [0.4914, 0.4822, 0.4465]
+      std: [0.247 , 0.2435, 0.2616]

@@ -7,6 +7,8 @@ from pycls.models.resnet import *
 from pycls.models.vgg import *
 from pycls.models.alexnet import *
 
+import torch
+
 
 # Supported models
 _models = {
@@ -55,7 +57,14 @@ def get_loss_fun(cfg):
 
 def build_model(cfg):
     """Builds the model."""
-    return get_model(cfg)(num_classes=cfg.MODEL.NUM_CLASSES)
+    if cfg.ACTIVE_LEARNING.SAMPLING_FN == 'dbal':
+        model = get_model(cfg)(num_classes=cfg.MODEL.NUM_CLASSES, use_dropout=True)
+    else:
+        model = get_model(cfg)(num_classes=cfg.MODEL.NUM_CLASSES)
+    if cfg.DATASET.NAME == 'MNIST':
+        model.conv1 =  torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+    
+    return model 
 
 
 def build_loss_fun(cfg):

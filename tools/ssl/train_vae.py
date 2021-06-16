@@ -23,7 +23,7 @@ from pycls.core.config import cfg
 import pycls.core.losses as losses
 import pycls.core.optimizer as optim
 from pycls.datasets.data import Data
-from pycls.models.vae import VanillaVAE
+from pycls.models.vae import VanillaVAE,VanillaVAE2
 from pycls.models.vae import loss_function as VAELoss
 import pycls.utils.checkpoint as cu
 import pycls.utils.logging as lu
@@ -46,7 +46,7 @@ kld_weight = 0
 def argparser():
     parser = argparse.ArgumentParser(description='Active Learning - Image Classification')
     parser.add_argument('--cfg', dest='cfg_file', help='Config file', required=True, type=str)
-
+    parser.add_argument('--exp-name', dest='exp_name', help='Experiment Name', required=True, type=str)
     return parser
 
 def plot_arrays(x_vals, y_vals, x_name, y_name, dataset_name, out_dir, isDebug=False):
@@ -112,12 +112,12 @@ def main(cfg):
     if not os.path.exists(cfg.OUT_DIR):
         os.makedirs(cfg.OUT_DIR)
     # Create "DATASET" specific directory
-    dataset_out_dir = os.path.join(cfg.OUT_DIR, cfg.DATASET.NAME, cfg.MODEL.TYPE)
+    dataset_out_dir = os.path.join(cfg.OUT_DIR, cfg.DATASET.NAME, 'VAE')
     if not os.path.exists(dataset_out_dir):
         os.makedirs(dataset_out_dir)
     # Creating the experiment directory inside the dataset specific directory 
     # all logs, labeled, unlabeled, validation sets are stroed here 
-    # E.g., output/CIFAR10/resnet18/{timestamp or cfg.EXP_NAME based on arguments passed}
+    # E.g., output/CIFAR10/VAE/{timestamp or cfg.EXP_NAME based on arguments passed}
     if cfg.EXP_NAME == 'auto':
         now = datetime.now()
         exp_dir = f'{now.year}_{now.month}_{now.day}_{now.hour}{now.minute}{now.second}'
@@ -162,8 +162,16 @@ def main(cfg):
     trainSet_loader = data_obj.getSequentialDataLoader(indexes=trainSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
     valSet_loader = data_obj.getSequentialDataLoader(indexes=valSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
 
-    # Initialize the model.  
-    model = VanillaVAE(in_channels=3, latent_dim=128)
+    # Initialize the model
+    if cfg.DATASET.NAME == 'MNIST':
+        in_c = 1
+    else:
+        in_c = 3
+    if cfg.DATASET.NAME == 'TINYIMAGENET':
+        model = VanillaVAE2(in_channels=in_c, latent_dim=512)
+    else:
+        model = VanillaVAE(in_channels=in_c, latent_dim=128)
+
     print("model: Vanilla VAE{}")
     logger.info("model: Vanilla VAE")
 
@@ -179,19 +187,19 @@ def main(cfg):
     print("======== VAE TRAINING ========")
     logger.info("======== VAE TRAINING ========")
 
-    best_val_acc, best_val_epoch, checkpoint_file = train_model(trainSet_loader, valSet_loader, model, optimizer, cfg)
+    best_val_loss, best_val_epoch, checkpoint_file = train_model(trainSet_loader, valSet_loader, model, optimizer, cfg)
 
 
-    print("Best Validation Accuracy: {}\nBest Epoch: {}\n".format(round(best_val_acc, 4), best_val_epoch))
-    logger.info("Best Validation Accuracy: {}\tBest Epoch: {}\n".format(round(best_val_acc, 4), best_val_epoch))
+    print("Best Validation Loss: {}\nBest Epoch: {}\n".format(round(best_val_loss, 4), best_val_epoch))
+    logger.info("Best Validation Loss: {}\tBest Epoch: {}\n".format(round(best_val_loss, 4), best_val_epoch))
 
     # Test best model checkpoint
     print("======== VAE TESTING ========\n")
     logger.info("======== VAE TESTING ========\n")
 
     test_acc = test_model(trainSet_loader, checkpoint_file, cfg, cur_episode=1)
-    print("Test Accuracy: {}.\n".format(round(test_acc, 4)))
-    logger.info("Test Accuracy {}.\n".format(test_acc))
+    print("Test Loss: {}.\n".format(round(test_acc, 4)))
+    logger.info("Test Loss {}.\n".format(test_acc))
 
     print("================================\n\n")
     logger.info("================================\n\n")
@@ -214,9 +222,9 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
     # Perform the training loop
     # print("Len(train_loader):{}".format(len(train_loader)))
     logger.info('Start epoch: {}'.format(start_epoch + 1))
-    val_set_acc = 0.
+    val_set_loss = 0.
 
-    temp_best_val_acc = 0.
+    temp_best_val_loss = 100000.
     temp_best_val_epoch = 0
     
     # Best checkpoint model and optimizer states
@@ -241,15 +249,17 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
         
         wandb.log({"epoch": cur_epoch})
         # Model evaluation
+        # print(is_eval_epoch(cur_epoch))
         if is_eval_epoch(cur_epoch):
             # Original code[PYCLS] passes on testLoader but we want to compute on val Set
             val_set_err = test_epoch(val_loader, model, val_meter, cur_epoch)
-            val_set_acc = val_set_err
+            val_set_loss = val_set_err
+            # print(val_set_loss)
             # val_set_acc = 100. - val_set_err
-            wandb.log({"val_loss": val_set_acc})
+            wandb.log({"val_loss": val_set_loss})
 
-            if temp_best_val_acc > val_set_acc:
-                temp_best_val_acc = val_set_acc
+            if temp_best_val_loss > val_set_loss:
+                temp_best_val_loss = val_set_loss
                 temp_best_val_epoch = cur_epoch + 1
 
                 # Save best model and optimizer state for checkpointing
@@ -262,7 +272,7 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
 
             # Since we start from 0 epoch
             val_acc_epochs_x.append(cur_epoch+1)
-            val_acc_epochs_y.append(val_set_acc)
+            val_acc_epochs_y.append(val_set_loss)
 
         plot_epoch_xvalues.append(cur_epoch+1)
         plot_epoch_yvalues.append(train_loss)
@@ -276,15 +286,15 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
         x_name="Epochs", y_name="Loss", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
         
         plot_arrays(x_vals=val_acc_epochs_x, y_vals=val_acc_epochs_y, \
-        x_name="Epochs", y_name="Validation Accuracy", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
+        x_name="Epochs", y_name="Validation Loss", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
 
         save_plot_values([plot_epoch_xvalues, plot_epoch_yvalues, plot_it_x_values, plot_it_y_values, val_acc_epochs_x, val_acc_epochs_y], \
                 ["plot_epoch_xvalues", "plot_epoch_yvalues", "plot_it_x_values", "plot_it_y_values","val_acc_epochs_x","val_acc_epochs_y"], out_dir=cfg.EPISODE_DIR)
 
-        print('Training Epoch: {}/{}\tTrain Loss: {}\tVal Accuracy: {}'.format(cur_epoch+1, cfg.OPTIM.MAX_EPOCH, round(train_loss, 4), round(val_set_acc, 4)))
+        print('Training Epoch: {}/{}\tTrain Loss: {}\tVal Loss: {}'.format(cur_epoch+1, cfg.OPTIM.MAX_EPOCH, round(train_loss, 4), round(val_set_loss, 4)))
 
     # Save the best model checkpoint (Episode level)
-    checkpoint_file = cu.save_checkpoint(info="vlBest_acc_"+str(int(temp_best_val_acc)), \
+    checkpoint_file = cu.save_checkpoint(info="vlBest_acc_"+str(int(temp_best_val_loss)), \
         model_state=best_model_state, optimizer_state=best_opt_state, epoch=temp_best_val_epoch, cfg=cfg)
 
     print('\nWrote Best Model Checkpoint to: {}\n'.format(checkpoint_file.split('/')[-1]))
@@ -297,7 +307,7 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
         x_name="Iterations", y_name="Loss", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
         
     plot_arrays(x_vals=val_acc_epochs_x, y_vals=val_acc_epochs_y, \
-        x_name="Epochs", y_name="Validation Accuracy", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
+        x_name="Epochs", y_name="Validation Loss", dataset_name=cfg.DATASET.NAME, out_dir=cfg.EPISODE_DIR)
 
     plot_epoch_xvalues = []
     plot_epoch_yvalues = []
@@ -305,10 +315,10 @@ def train_model(train_loader, val_loader, model, optimizer, cfg):
     plot_it_x_values = []
     plot_it_y_values = []
     
-    best_val_acc = temp_best_val_acc
+    best_val_loss = temp_best_val_loss
     best_val_epoch = temp_best_val_epoch
 
-    return best_val_acc, best_val_epoch, checkpoint_file
+    return best_val_loss, best_val_epoch, checkpoint_file
 
 
 @torch.no_grad()
@@ -321,8 +331,15 @@ def test_model(test_loader, checkpoint_file, cfg, cur_episode):
     global plot_it_y_values
 
     test_meter = TestMeter(len(test_loader))
-
-    model = model_builder.build_model(cfg)
+    
+    if cfg.DATASET.NAME == 'MNIST':
+        in_c = 1
+    else:
+        in_c = 3
+    if cfg.DATASET.NAME == 'TINYIMAGENET':
+        model = VanillaVAE2(in_channels=in_c, latent_dim=512)
+    else:
+        model = VanillaVAE(in_channels=in_c, latent_dim=128)
     model = cu.load_checkpoint(checkpoint_file, model)
     
     test_err = test_epoch(test_loader, model, test_meter, cur_episode)
@@ -359,10 +376,11 @@ def train_epoch(train_loader, model, loss_fun, optimizer, train_meter, cur_epoch
     train_meter.iter_tic() #This basically notes the start time in timer class defined in utils/timer.py
     total_loss = 0
     len_train_loader = len(train_loader)
-    for cur_iter, (inputs, labels) in enumerate(train_loader):
+    for cur_iter, (inputs, _) in enumerate(train_loader):
         #ensuring that inputs are floatTensor as model weights are
         inputs = inputs.type(torch.cuda.FloatTensor)
-        inputs, labels = inputs.cuda(), labels.cuda(non_blocking=True)
+        inputs = inputs.cuda()
+
         # Perform the forward pass
         inputs_recon, inputs, mu, log_var = model(inputs)
         # Compute the losses
@@ -475,6 +493,7 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
+    cfg.EXP_NAME = argparser().parse_args().exp_name
     if cfg.SWEEP:
         # W&B Sweep config
         sweep_config = {
@@ -498,6 +517,8 @@ if __name__ == "__main__":
             'batch_size': cfg.TRAIN.BATCH_SIZE,
             'learning_rate': cfg.OPTIM.BASE_LR
         }
+
+        os.environ['WANDB_API_KEY'] = "befac31ac1ef7426a055ae8c138fb2b47930bd35"
         # Login to wandb
         wandb.login()
 
@@ -516,6 +537,7 @@ if __name__ == "__main__":
 
         wandb.agent(sweep_id, main(cfg))
     else:
+        os.environ['WANDB_API_KEY'] = "befac31ac1ef7426a055ae8c138fb2b47930bd35"
         wandb.login()
         wandb.init(project="{}-vae-train".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
 

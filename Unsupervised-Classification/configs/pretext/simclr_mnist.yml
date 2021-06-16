@@ -8,8 +8,8 @@ model_kwargs:
    features_dim: 128
 
 # Dataset
-train_db_name: cifar-10
-val_db_name: cifar-10
+train_db_name: mnist
+val_db_name: mnist
 num_classes: 10
 
 # Loss
@@ -18,7 +18,7 @@ criterion_kwargs:
    temperature: 0.1 
 
 # Hyperparameters
-epochs: 500
+epochs: 100
 optimizer: sgd
 optimizer_kwargs:
    nesterov: False
@@ -47,11 +47,11 @@ augmentation_kwargs:
    random_grayscale: 
       p: 0.2
    normalize:
-      mean: [0.1307,]
+      mean:  [0.1307,]
       std: [0.3081,]
 
 transformation_kwargs:
    crop_size: 32
    normalize:
-      mean: [0.1307,]
+      mean:  [0.1307,]
       std: [0.3081,]

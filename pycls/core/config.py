@@ -124,7 +124,7 @@ _C.OPTIM.LR_POLICY = 'cos'
 # Exponential decay factor
 _C.OPTIM.GAMMA = 0.1
 # Steps for 'steps' policy (in epochs)
-_C.OPTIM.STEPS = []
+_C.OPTIM.STEPS = [0]
 # Learning rate multiplier for 'steps' policy
 _C.OPTIM.LR_MULT = 0.1
 # Maximal number of epochs
@@ -222,7 +222,7 @@ _C.INIT_POOL.VALSET_PATH = ''
 # #  ACTIVE LEARNING options
 # #-------------------------------------------------------------------------------#
 _C.ACTIVE_LEARNING = CN()
-_C.ACTIVE_LEARNING.SAMPLING_FN = 'random' # 'entropy', 'margin', 'vaal', 'coreset', 'ensemble_var_R'
+_C.ACTIVE_LEARNING.SAMPLING_FN = 'random' # 'entropy', 'margin', 'vaal', 'coreset', 'ensemble_var_R', 'uncertainty'
 _C.ACTIVE_LEARNING.ACTIVATE = False
 _C.ACTIVE_LEARNING.LSET_PATH = ''
 _C.ACTIVE_LEARNING.USET_PATH = ''
@@ -232,7 +232,7 @@ _C.ACTIVE_LEARNING.MODEL_SAVE_DIR = ''
 _C.ACTIVE_LEARNING.DATA_SPLIT = 0
 _C.ACTIVE_LEARNING.BUDGET_SIZE = 64058 # 10% of initial lSet
 _C.ACTIVE_LEARNING.N_BINS = 500 # Used by UC_uniform
-_C.ACTIVE_LEARNING.DROPOUT_ITERATIONS = 0 # Used by DBAL
+_C.ACTIVE_LEARNING.DROPOUT_ITERATIONS = 25 # Used by DBAL
 _C.ACTIVE_LEARNING.MAX_ITER = 5 # Max AL iterations
 
 # ---------------------------------------------------------------------------- #

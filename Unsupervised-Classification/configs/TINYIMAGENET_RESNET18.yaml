@@ -3,7 +3,7 @@ RNG_SEED: 1
 GPU_ID: '3'
 DATASET:
   NAME: TINYIMAGENET 
-  ROOT_DIR: '/DATA1/akshay/datasets/tiny-imagenet-200/'
+  ROOT_DIR: '/DATA/akshay/datasets/tiny-imagenet-200/'
   VAL_RATIO: 0.1
   AUG_METHOD: 'none'
 MODEL:

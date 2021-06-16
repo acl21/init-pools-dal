@@ -1,4 +1,4 @@
-EXP_NAME: 'VAE_Testing'
+# EXP_NAME: 'VAE_Testing'
 RNG_SEED: 1
 GPU_ID: '3'
 SWEEP: False
@@ -7,29 +7,26 @@ DATASET:
   ROOT_DIR: './data'
   VAL_RATIO: 0.05
   AUG_METHOD: 'none'
-MODEL:
-  TYPE: resnet18
-  NUM_CLASSES: 4
 OPTIM:
-  TYPE: 'sgd'
-  BASE_LR: 0.1
-  LR_POLICY: steps
+  TYPE: 'adam'
+  BASE_LR: 0.001
+  LR_POLICY: none
   LR_MULT: 0.2
   STEPS: [0, 60, 120, 160, 200] #[0, 30, 60, 90]
-  MAX_EPOCH: 50
+  MAX_EPOCH: 200
   MOMENTUM: 0.9
   NESTEROV: True
   WEIGHT_DECAY: 0.0005
   GAMMA: 0.1
 TRAIN:
   SPLIT: train
-  BATCH_SIZE: 128
-  IM_SIZE: 64
+  BATCH_SIZE: 200
+  IM_SIZE: 32
   EVAL_PERIOD: 2
 TEST:
   SPLIT: test
   BATCH_SIZE: 200
-  IM_SIZE: 64
+  IM_SIZE: 32
 DATA_LOADER:
   NUM_WORKERS: 4
 CUDNN:

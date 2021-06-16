@@ -44,14 +44,20 @@ def get_feature_dimensions_backbone(p):
 def get_model(p, pretrain_path=None):
     # Get backbone
     if p['backbone'] == 'resnet18':
-        if p['train_db_name'] in ['cifar-10', 'cifar-20']:
+        if p['train_db_name'] in ['cifar-10', 'cifar-20', 'imbalanced-cifar-10', 'imbalanced-cifar-100']:
             from models.resnet_cifar import resnet18
             backbone = resnet18()
 
         elif p['train_db_name'] == 'stl-10':
             from models.resnet_stl import resnet18
             backbone = resnet18()
-        
+        elif 'imagenet' in p['train_db_name']:
+            from models.resnet_tinyimnet import resnet18
+            backbone = resnet18()
+        elif  p['train_db_name'] == 'mnist':
+            from models.resnet_mnist import resnet18
+            backbone = resnet18()
+            backbone['backbone'].conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         else:
             raise NotImplementedError
 
@@ -127,7 +133,15 @@ def get_train_dataset(p, transform, to_augmented_dataset=False,
     elif p['train_db_name'] == 'cifar-20':
         from data.cifar import CIFAR20
         dataset = CIFAR20(train=True, transform=transform, download=True)
+    
+    elif p['train_db_name'] == 'imbalanced-cifar-10':
+        from data.imbalanced_cifar import IMBALANCECIFAR10
+        dataset = IMBALANCECIFAR10(train=True, transform=transform)
 
+    elif p['train_db_name'] == 'imbalanced-cifar-100':
+        from data.imbalanced_cifar import IMBALANCECIFAR100
+        dataset = IMBALANCECIFAR100(train=True, transform=transform)
+        
     elif p['train_db_name'] == 'stl-10':
         from data.stl import STL10
         dataset = STL10(split=split, transform=transform, download=True)
@@ -143,11 +157,11 @@ def get_train_dataset(p, transform, to_augmented_dataset=False,
     
     elif p['train_db_name'] == "mnist":
         from data.mnist import MNIST
-        dataset = MNIST(train=True, transform=transform, download=True)
+        dataset = MNIST(root='../data/mnist/', train=True, transform=transform, download=True)
     
     elif p['train_db_name'] == 'tinyimagenet':
         from data.tinyimagenet import TinyImageNet
-        dataset = TinyImageNet(split=split, transform=transform)
+        dataset = TinyImageNet(split='train', transform=transform)
 
     else:
         raise ValueError('Invalid train dataset {}'.format(p['train_db_name']))
@@ -175,6 +189,14 @@ def get_val_dataset(p, transform=None, to_neighbors_dataset=False):
         from data.cifar import CIFAR20
         dataset = CIFAR20(train=False, transform=transform, download=True)
 
+    elif p['train_db_name'] == 'imbalanced-cifar-10':
+        from data.imbalanced_cifar import IMBALANCECIFAR10
+        dataset = IMBALANCECIFAR10(train=False, transform=transform)
+
+    elif p['train_db_name'] == 'imbalanced-cifar-100':
+        from data.imbalanced_cifar import IMBALANCECIFAR100
+        dataset = IMBALANCECIFAR100(train=False, transform=transform)
+
     elif p['val_db_name'] == 'stl-10':
         from data.stl import STL10
         dataset = STL10(split='test', transform=transform, download=True)
@@ -187,6 +209,15 @@ def get_val_dataset(p, transform=None, to_neighbors_dataset=False):
         from data.imagenet import ImageNetSubset
         subset_file = './data/imagenet_subsets/%s.txt' %(p['val_db_name'])
         dataset = ImageNetSubset(subset_file=subset_file, split='val', transform=transform)
+        
+    elif p['train_db_name'] == 'tinyimagenet':
+        from data.tinyimagenet import TinyImageNet
+        dataset = TinyImageNet(split='val', transform=transform)
+    
+    elif p['train_db_name'] == "mnist":
+        from data.mnist import MNIST
+        dataset = MNIST(root='../data/mnist/', train=False, transform=transform, download=True)
+        
     
     else:
         raise ValueError('Invalid validation dataset {}'.format(p['val_db_name']))
@@ -238,8 +269,8 @@ def get_train_transformations(p):
     elif p['augmentation_strategy'] == 'ours':
         # Augmentation strategy from our paper 
         return transforms.Compose([
+            transforms.RandomResizedCrop(p['augmentation_kwargs']['crop_size']),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(p['augmentation_kwargs']['crop_size']),
             Augment(p['augmentation_kwargs']['num_strong_augs']),
             transforms.ToTensor(),
             transforms.Normalize(**p['augmentation_kwargs']['normalize']),
@@ -254,7 +285,7 @@ def get_train_transformations(p):
 
 def get_val_transformations(p):
     return transforms.Compose([
-            transforms.CenterCrop(p['transformation_kwargs']['crop_size']),
+            transforms.RandomResizedCrop(p['transformation_kwargs']['crop_size']),
             transforms.ToTensor(), 
             transforms.Normalize(**p['transformation_kwargs']['normalize'])])
 

@@ -45,6 +45,9 @@ plot_it_y_values = []
 def argparser():
     parser = argparse.ArgumentParser(description='Active Learning - Image Classification')
     parser.add_argument('--cfg', dest='cfg_file', help='Config file', required=True, type=str)
+    parser.add_argument('--exp-name', dest='exp_name', help='Experiment Name', required=True, type=str)
+    parser.add_argument('--init', dest='init', help='Init Pool Function', required=True, type=str)
+    parser.add_argument('--al', dest='al', help='AL Method', required=True, type=str)
 
     return parser
 
@@ -149,7 +152,7 @@ def main(cfg):
     print("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
     logger.info("\nSampling Initial Pool using {}.".format(str.upper(cfg.INIT_POOL.SAMPLING_FN)))
     if cfg.INIT_POOL.SAMPLING_FN == 'random':
-           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.ACTIVE_LEARNING.INIT_RATIO, \
+           lSet_path, uSet_path, valSet_path = data_obj.makeLUVSets(train_split_ratio=cfg.INIT_POOL.INIT_RATIO, \
         val_split_ratio=cfg.DATASET.VAL_RATIO, data=train_data, seed_id=cfg.RNG_SEED, save_dir=cfg.EXP_DIR)
     else:
         lSet, uSet = InitialPool(cfg).sample_from_uSet(train_data)
@@ -174,6 +177,10 @@ def main(cfg):
     uSet_loader = data_obj.getIndexesDataLoader(indexes=uSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
     test_loader = data_obj.getTestLoader(data=test_data, test_batch_size=cfg.TRAIN.BATCH_SIZE, seed_id=cfg.RNG_SEED)
 
+    
+    print(len(lSet_loader)*cfg.TRAIN.BATCH_SIZE)
+    print(len(valSet_loader)*cfg.TRAIN.BATCH_SIZE)
+    print(len(uSet_loader)*cfg.TRAIN.BATCH_SIZE)
     # Initialize the model.  
     model = model_builder.build_model(cfg)
     print("model: {}\n".format(cfg.MODEL.TYPE))
@@ -216,6 +223,8 @@ def main(cfg):
         print("Test Accuracy: {}.\n".format(round(test_acc, 4)))
         logger.info("EPISODE {} Test Accuracy {}.\n".format(cur_episode, test_acc))
         
+        wandb.log({"Test Accuracy": test_acc})
+
         # No need to perform active sampling in the last episode iteration
         if cur_episode == cfg.ACTIVE_LEARNING.MAX_ITER:
             break
@@ -238,6 +247,7 @@ def main(cfg):
         lSet_loader = data_obj.getIndexesDataLoader(indexes=lSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
         valSet_loader = data_obj.getIndexesDataLoader(indexes=valSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
         uSet_loader = data_obj.getSequentialDataLoader(indexes=uSet, batch_size=cfg.TRAIN.BATCH_SIZE, data=train_data)
+
 
         print("Active Sampling Complete. After Episode {}:\nNew Labeled Set: {}, New Unlabeled Set: {}, Active Set: {}\n".format(cur_episode, len(lSet), len(uSet), len(activeSet)))
         logger.info("Active Sampling Complete. After Episode {}:\nNew Labeled Set: {}, New Unlabeled Set: {}, Active Set: {}\n".format(cur_episode, len(lSet), len(uSet), len(activeSet)))
@@ -529,6 +539,10 @@ def test_epoch(test_loader, model, test_meter, cur_epoch):
 
 if __name__ == "__main__":
     cfg.merge_from_file(argparser().parse_args().cfg_file)
+    cfg.EXP_NAME = argparser().parse_args().exp_name
+    cfg.INIT_POOL.SAMPLING_FN = argparser().parse_args().init
+    cfg.ACTIVE_LEARNING.SAMPLING_FN = argparser().parse_args().al
+    
     if cfg.SWEEP:
         # W&B Sweep config
         sweep_config = {
@@ -570,6 +584,7 @@ if __name__ == "__main__":
 
         wandb.agent(sweep_id, main(cfg))
     else:
+        os.environ['WANDB_API_KEY'] = "befac31ac1ef7426a055ae8c138fb2b47930bd35"
         wandb.login()
         wandb.init(project="{}-init-main".format(str.lower(cfg.DATASET.NAME)), name=cfg.EXP_NAME)
 
