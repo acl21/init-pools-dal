@@ -26,7 +26,6 @@ url = {https://arxiv.org/abs/2011.14696},
 }
 ```
 
-
 ### About Pre-registration Workshop
 Pre-registration separates the generation and confirmation of hypotheses. Before spending a lot of time on running confirmatory experiments, this workshop allows researchers to get their ideas peer-reviewed first through paper proposals. Only after the paper is accepted, you run the experiments and report your results.  
 
@@ -36,11 +35,11 @@ What does science get from this?
 * Papers are evaluated on the basis of scientific interest, not whether they achieve the best results
 
 Checkout their workshops here:
-* [CVPR 2017](http://negative.vision/)
-* [ICCV 2019](http://preregister.vision/)
 * [NeurIPS 2020](https://preregister.science/neurips2020.html)
+* [ICCV 2019](http://preregister.vision/)
+* [CVPR 2017](http://negative.vision/)
 
-_Note: The repository is a clone of the toolkit _Deep Active Learning Toolkit for Image Classification in PyTorch_, available [here](https://github.com/acl21/deep-active-learning-pytorch). This codebase only supports single-machine single-gpu training. If you have any questions about the code, please email at research <at> akshaychandra <dot> com._ 
+_Note: The repository is a clone of the toolkit _Deep Active Learning Toolkit for Image Classification in PyTorch_, available [here](https://github.com/acl21/deep-active-learning-pytorch). This codebase only supports single-machine single-gpu training. If you have any questions about the code, please email at research [at] akshaychandra [dot] com._ 
 
 ## Acknowledgement
 We thank DST, Govt of India, for partly supporting this work through the IMPRINT program (IMP/2019/000250). We also thank the members of Lab1055, IIT Hyderabad for engaging and fruitful discussions. Last but not the least, we thank all our anonymous reviewers for their insightful comments and suggestions, which helped improve the quality of this work.
