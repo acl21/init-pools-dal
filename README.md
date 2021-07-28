@@ -2,7 +2,7 @@
 
 This is the official code implementation of our paper, _On Initial Pools for Deep Active Learning_, accepted at Pre-registration Workshop at NeurIPS 2020. The final results paper is accepted to be included in the Proceedings of Machine Learning Research (PMLR), a sister publication to the Journal of Machine Learning Research (JMLR). You can find the paper [here](https://arxiv.org/abs/2011.14696). 
 
-_Note: The repository is a clone of the toolkit _Deep Active Learning Toolkit for Image Classification in PyTorch_, available [here](https://github.com/acl21/deep-active-learning-pytorch). This work was heavily dependant on the code provided by Gansbeke et al. (see `Unsupervised-Classification/README.md` for more details about their brilliant work). This codebase only supports single-machine single-gpu training. If you have any questions about the code, please email at research [at] akshaychandra [dot] com._ 
+_Note: The repository is a clone of the toolkit [Deep Active Learning Toolkit for Image Classification in PyTorch](https://github.com/acl21/deep-active-learning-pytorch). This work was heavily dependant on the code provided by Gansbeke et al. (see `Unsupervised-Classification/README.md` for more details about their brilliant work). This codebase only supports single-machine single-gpu training. If you have any questions about the code, please email at research [at] akshaychandra [dot] com._ 
 
 ## Abstract
 Active Learning (AL) techniques aim to minimize the training data required to train a model for a given task. Pool-based AL techniques start with a small initial labeled pool and then iteratively pick batches of the most informative samples for labeling. Generally, the initial pool is sampled randomly and labeled to seed the AL iterations. While recent studies have focused on evaluating the robustness of various query functions in AL, little to no attention has been given to the design of the initial labeled pool for deep active learning. Given the recent successes of learning representations in self-supervised/unsupervised ways, we study if an intelligently sampled initial labeled pool can improve deep AL performance. We investigate the effect of intelligently sampled initial labeled pools, including the use of self-supervised and unsupervised strategies, on deep AL methods. The setup, hypotheses, methodology, and implementation details were evaluated by peer review before experiments were conducted. Experimental results could not conclusively prove that intelligently sampled initial pools are better for AL than random initial pools in the long run, although a Variational Autoencoder-based initial pool sampling strategy showed interesting trends that merit deeper investigation.
@@ -13,18 +13,21 @@ In this paper, we proposed two kinds of strategies -- self-supervision based and
 
 
 ## Citing this Repository
-If you find this repo helpful in your research or refer to the baseline results in the [Model Zoo](MODEL_ZOO.md), please consider citing us:
+If you find this repo helpful in your research or refer to the baseline results in the paper, please consider citing us:
 ```
-@inproceedings{Chandra2021OnIP,
-author = {Chandra, Akshay L and Desai, Sai Vikas and Devaguptapu, Chaitanya and Balasubramanian, Vineeth N},
+@InProceedings{pmlr-v148-chandra21a,
 title = {On Initial Pools for Deep Active Learning},
-publisher = {Pre-registration Workshop, NeurIPS},
-year = {2020},
-booktitle = {Proceedings of Machine Learning Research (PMLR)},
-series = {Volume 148},
-numpages = {19}
-url = {https://arxiv.org/abs/2011.14696},
-}
+author = {Chandra, Akshay L. and Desai, Sai Vikas and Devaguptapu, Chaitanya and Balasubramanian, Vineeth N.},
+booktitle = {NeurIPS 2020 Workshop on Pre-registration in Machine Learning},
+pages = {14--32},
+year = {2021},
+editor = {Bertinetto, Luca and Henriques, João F. and Albanie, Samuel and Paganini, Michela and Varol, Gül},
+volume = {148},
+series = {Proceedings of Machine Learning Research},
+month = {11 Dec},
+publisher = {PMLR},
+pdf = {http://proceedings.mlr.press/v148/chandra21a/chandra21a.pdf},
+url = {http://proceedings.mlr.press/v148/chandra21a.html}
 ```
 
 ## About Pre-registration Workshop
